@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Administración · GrafoBlog{% endblock %}
+{% block content %}
+<div class="page-heading"><div class="eyebrow">GESTIÓN</div><h1>Administración</h1><p>Control de etiquetas y cuentas del blog.</p></div>
+<section class="panel"><div class="section-heading"><h2>Etiquetas</h2><span>{{ tags|length }} en total</span></div>
+  <form method="post" action="{{ url_for('tag_new') }}" class="row-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input name="nombre" maxlength="50" placeholder="Nueva etiqueta" aria-label="Nueva etiqueta" required>
+    <button class="button small" type="submit">Agregar</button>
+  </form>
+  {% for row in tags %}
+  <div class="admin-row">
+    <form class="row-form" method="post" action="{{ url_for('tag_edit', tag_id=row.etiqueta.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input name="nombre" maxlength="50" value="{{ row.etiqueta.nombre }}" aria-label="Nombre de etiqueta" required>
+      <button class="button secondary small">Guardar</button>
+    </form>
+    <form method="post" action="{{ url_for('tag_delete', tag_id=row.etiqueta.id) }}" onsubmit="return confirm('¿Eliminar etiqueta?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="link-button destructive">Eliminar</button>
+    </form>
+  </div>
+  {% endfor %}
+</section>
+<section class="panel"><div class="section-heading"><h2>Usuarios</h2><span>{{ users|length }} cuentas</span></div>
+  {% for row in users %}
+  <div class="admin-row">
+    <div><strong>{{ row.usuario.nombre }}</strong><div class="meta">{{ row.usuario.email }}</div></div>
+    <form class="row-form" method="post" action="{{ url_for('role_edit', user_id=row.usuario.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <select name="rol" aria-label="Rol de {{ row.usuario.nombre }}">
+        <option value="USUARIO" {% if row.usuario.rol == 'USUARIO' %}selected{% endif %}>Usuario</option>
+        <option value="ADMIN" {% if row.usuario.rol == 'ADMIN' %}selected{% endif %}>Administrador</option>
+      </select>
+      <button class="button secondary small">Guardar</button>
+    </form>
+    {% if row.usuario.id != g.user.id %}
+    <form method="post" action="{{ url_for('user_delete', user_id=row.usuario.id) }}" onsubmit="return confirm('¿Eliminar cuenta, artículos y comentarios?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="link-button destructive">Eliminar</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}

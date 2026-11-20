@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Editar' if item else 'Nuevo' }} artículo · GrafoBlog{% endblock %}
+{% block content %}
+<section class="panel editor">
+  <div class="eyebrow">PUBLICACIÓN</div><h1>{{ 'Editar artículo' if item else 'Nuevo artículo' }}</h1>
+  <form class="form" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Título <input name="titulo" maxlength="160" value="{{ item.articulo.titulo if item else '' }}" required></label>
+    <label>Contenido <textarea name="contenido" rows="12" maxlength="20000" required>{{ item.articulo.contenido if item else '' }}</textarea></label>
+    <fieldset><legend>Etiquetas</legend>
+      <div class="checks">{% for row in tags %}
+        <label><input type="checkbox" name="tags" value="{{ row.etiqueta.id }}" {% if item and row.etiqueta.id in item.etiquetas|map(attribute='id')|list %}checked{% endif %}> {{ row.etiqueta.nombre }}</label>
+      {% else %}<span class="muted">El administrador aún no ha creado etiquetas.</span>{% endfor %}</div>
+    </fieldset>
+    <button class="button" type="submit">Guardar artículo</button>
+  </form>
+</section>
+{% endblock %}

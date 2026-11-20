@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}{{ item.articulo.titulo }} · GrafoBlog{% endblock %}
+{% block content %}
+<article class="article-page">
+  <a class="back" href="{{ url_for('index') }}">← Todos los artículos</a>
+  <div class="tags">{% for tag in item.etiquetas %}<span class="tag">{{ tag.nombre }}</span>{% endfor %}</div>
+  <h1>{{ item.articulo.titulo }}</h1>
+  <div class="meta">Por {{ item.autor.nombre if item.autor else 'Artículo de ejemplo' }} · {{ item.articulo.creado|string|truncate(10, True, '') }}</div>
+  <div class="prose">{{ item.articulo.contenido }}</div>
+  {% if g.user and (g.user.rol == 'ADMIN' or (item.autor and item.autor.id == g.user.id)) %}
+    <div class="actions">
+      <a class="button secondary" href="{{ url_for('article_edit', article_id=item.articulo.id) }}">Editar</a>
+      <form method="post" action="{{ url_for('article_delete', article_id=item.articulo.id) }}" onsubmit="return confirm('¿Eliminar artículo y comentarios?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="button danger" type="submit">Eliminar artículo</button>
+      </form>
+    </div>
+  {% endif %}
+</article>
+<section class="comments">
+  <div class="section-heading"><h2>Conversación</h2><span>{{ comments|length }} comentarios</span></div>
+  {% for row in comments %}
+    <div class="comment">
+      <div class="meta"><strong>{{ row.autor.nombre if row.autor else 'Cuenta eliminada' }}</strong> · {{ row.comentario.creado|string|truncate(10, True, '') }}</div>
+      <p>{{ row.comentario.texto }}</p>
+      {% if g.user and (g.user.rol == 'ADMIN' or (row.autor and row.autor.id == g.user.id)) %}
+      <div class="actions">
+        <a href="{{ url_for('comment_edit', comment_id=row.comentario.id) }}">Editar</a>
+        <form method="post" action="{{ url_for('comment_delete', comment_id=row.comentario.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="link-button" type="submit">Eliminar</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  {% else %}<p class="muted">Aún no hay comentarios.</p>{% endfor %}
+  {% if g.user %}
+  <form class="form comment-form" method="post" action="{{ url_for('comment_new', article_id=item.articulo.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Tu comentario <textarea name="texto" rows="4" maxlength="2000" required></textarea></label>
+    <button class="button" type="submit">Publicar comentario</button>
+  </form>
+  {% else %}<p><a href="{{ url_for('login') }}">Ingresa</a> para participar.</p>{% endif %}
+</section>
+{% endblock %}

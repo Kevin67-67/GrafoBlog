@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Editar comentario · GrafoBlog{% endblock %}
+{% block content %}
+<section class="panel narrow"><h1>Editar comentario</h1>
+  <form class="form" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Comentario <textarea name="texto" rows="6" maxlength="2000" required>{{ item.comentario.texto }}</textarea></label>
+    <button class="button" type="submit">Guardar cambios</button>
+  </form>
+</section>
+{% endblock %}

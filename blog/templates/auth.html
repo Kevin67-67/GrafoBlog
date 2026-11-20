@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}{{ heading }} · GrafoBlog{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <div class="eyebrow">TU ESPACIO</div><h1>{{ heading }}</h1>
+  <form method="post" class="form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% if register %}<label>Nombre <input name="nombre" maxlength="80" required autocomplete="name"></label>{% endif %}
+    <label>Correo <input name="email" type="email" maxlength="254" required autocomplete="email"></label>
+    <label>Contraseña <input name="password" type="password" minlength="{{ 8 if register else 1 }}" maxlength="128" required autocomplete="{{ 'new-password' if register else 'current-password' }}"></label>
+    <button class="button" type="submit">{{ heading }}</button>
+  </form>
+  <p class="muted">{% if register %}¿Ya tienes una cuenta? <a href="{{ url_for('login') }}">Ingresa</a>{% else %}¿Eres nuevo? <a href="{{ url_for('register') }}">Crea una cuenta</a>{% endif %}</p>
+</section>
+{% endblock %}

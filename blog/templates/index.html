@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% block title %}Artículos · GrafoBlog{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="eyebrow">BLOG EN NEO4J</div>
+  <h1>Ideas que se conectan.</h1>
+  <p>Explora artículos, etiquetas y conversaciones en una base de datos de grafos.</p>
+  {% if g.user %}<a class="button" href="{{ url_for('article_new') }}">Escribir artículo →</a>{% endif %}
+</section>
+<div class="section-heading"><h2>Publicaciones recientes</h2><span>{{ articles|length }} artículos</span></div>
+<div class="grid">
+  {% for item in articles %}
+  <article class="card">
+    <div class="tags">{% for tag in item.etiquetas %}<span class="tag">{{ tag.nombre }}</span>{% endfor %}</div>
+    <h3><a href="{{ url_for('article_detail', article_id=item.articulo.id) }}">{{ item.articulo.titulo }}</a></h3>
+    <p>{{ item.articulo.contenido|truncate(150) }}</p>
+    <div class="meta">{{ item.autor.nombre if item.autor else 'Artículo de ejemplo' }}
+      · {{ item.articulo.creado|string|truncate(10, True, '') }}</div>
+    <a class="read-more" href="{{ url_for('article_detail', article_id=item.articulo.id) }}">Leer artículo →</a>
+  </article>
+  {% else %}
+    <div class="empty"><h3>Aún no hay artículos</h3><p>Publica el primero para empezar a construir el grafo.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}
