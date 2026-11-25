@@ -71,7 +71,8 @@ class BlogRepository:
             "OPTIONAL MATCH (a)<-[:EN_ARTICULO]-(ca:Comentario) "
             "WITH u,collect(DISTINCT a) AS articulos,collect(DISTINCT ca) AS respuestas "
             "OPTIONAL MATCH (u)-[:ESCRIBIO]->(cp:Comentario) "
-            "WITH [u]+articulos+respuestas+collect(DISTINCT cp) AS nodos "
+            "WITH u,articulos,respuestas,collect(DISTINCT cp) AS propios "
+            "WITH [u]+articulos+respuestas+propios AS nodos "
             "UNWIND nodos AS n WITH DISTINCT n DETACH DELETE n "
             "RETURN count(*) AS eliminados",
             id=user_id,

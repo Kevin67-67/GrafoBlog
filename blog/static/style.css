@@ -489,3 +489,9 @@ fieldset {
         gap: .5rem;
     }
 }
+
+.card-cover.has-image,
+.article-cover,
+.cover-preview {
+    border-radius: 12px;
+}
