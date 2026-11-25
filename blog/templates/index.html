@@ -1,25 +1,72 @@
 {% extends 'base.html' %}
 {% block title %}Artículos · GrafoBlog{% endblock %}
 {% block content %}
-<section class="hero">
-  <div class="eyebrow">BLOG EN NEO4J</div>
-  <h1>Ideas que se conectan.</h1>
-  <p>Explora artículos, etiquetas y conversaciones en una base de datos de grafos.</p>
-  {% if g.user %}<a class="button" href="{{ url_for('article_new') }}">Escribir artículo →</a>{% endif %}
-</section>
-<div class="section-heading"><h2>Publicaciones recientes</h2><span>{{ articles|length }} artículos</span></div>
-<div class="grid">
-  {% for item in articles %}
-  <article class="card">
-    <div class="tags">{% for tag in item.etiquetas %}<span class="tag">{{ tag.nombre }}</span>{% endfor %}</div>
-    <h3><a href="{{ url_for('article_detail', article_id=item.articulo.id) }}">{{ item.articulo.titulo }}</a></h3>
-    <p>{{ item.articulo.contenido|truncate(150) }}</p>
-    <div class="meta">{{ item.autor.nombre if item.autor else 'Artículo de ejemplo' }}
-      · {{ item.articulo.creado|string|truncate(10, True, '') }}</div>
-    <a class="read-more" href="{{ url_for('article_detail', article_id=item.articulo.id) }}">Leer artículo →</a>
-  </article>
-  {% else %}
-    <div class="empty"><h3>Aún no hay artículos</h3><p>Publica el primero para empezar a construir el grafo.</p></div>
-  {% endfor %}
+{% macro tags(item) %}
+{% if item.etiquetas %}
+<div class="tags">
+  {% for tag in item.etiquetas %}<span class="tag">{{ tag.nombre }}</span>{% endfor %}
 </div>
+{% endif %}
+{% endmacro %}
+{% macro byline(item) %}
+<div class="meta">
+  {{ item.autor.nombre if item.autor else 'Artículo de ejemplo' }}
+  {% if item.articulo.creado %}
+  <span aria-hidden="true"> · </span>
+  <time datetime="{{ (item.articulo.creado|string)[:10] }}">{{ (item.articulo.creado|string)[:10] }}</time>
+  {% endif %}
+</div>
+{% endmacro %}
+
+<section class="masthead">
+  <div class="masthead-title">
+    <h1><span>Grafo</span><span>Blog</span></h1>
+    <p>Blog del proyecto de Bases de Datos Avanzadas.</p>
+  </div>
+  {% if articles %}
+  {% set item = articles[0] %}
+  <article class="featured">
+    <h2 class="featured-label">Último artículo</h2>
+    {{ tags(item) }}
+    <h3><a href="{{ url_for('article_detail', article_id=item.articulo.id) }}">{{ item.articulo.titulo }}</a></h3>
+    <p>{{ item.articulo.contenido|truncate(170) }}</p>
+    {{ byline(item) }}
+  </article>
+  {% endif %}
+</section>
+
+<section class="publication-list" aria-labelledby="publicaciones">
+  <div class="section-heading">
+    <h2 id="publicaciones">Publicaciones recientes</h2>
+    <span>{{ articles|length }} {{ 'artículo' if articles|length == 1 else 'artículos' }}</span>
+  </div>
+  {% if articles %}
+  <div class="grid">
+    {% for item in articles %}
+    <article class="card">
+      {% if item.articulo.tiene_imagen %}
+      <a class="card-cover has-image" href="{{ url_for('article_detail', article_id=item.articulo.id) }}" aria-label="Leer {{ item.articulo.titulo }}">
+        <img src="{{ url_for('article_image', article_id=item.articulo.id) }}" alt="" loading="lazy">
+      </a>
+      {% else %}
+      <div class="card-cover" aria-hidden="true"><span>{{ item.articulo.titulo[:1]|upper }}</span></div>
+      {% endif %}
+      <div class="card-body">
+        {{ tags(item) }}
+        <h3><a href="{{ url_for('article_detail', article_id=item.articulo.id) }}">{{ item.articulo.titulo }}</a></h3>
+        <p>{{ item.articulo.contenido|truncate(145) }}</p>
+        {{ byline(item) }}
+        <a class="read-more" href="{{ url_for('article_detail', article_id=item.articulo.id) }}">Leer artículo <span
+            aria-hidden="true">↗</span></a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    <p>Aún no hay artículos.</p>
+    {% if g.user %}<a class="button" href="{{ url_for('article_new') }}">Escribir el primero</a>{% endif %}
+  </div>
+  {% endif %}
+</section>
 {% endblock %}

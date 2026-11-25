@@ -34,7 +34,11 @@
       </select>
       <button class="button secondary small">Guardar</button>
     </form>
-    {% if row.usuario.id != g.user.id %}
+    {% if row.usuario.id == g.user.id %}
+    <span class="muted">Tu cuenta</span>
+    {% elif row.usuario.rol == 'ADMIN' %}
+    <span class="muted">Cambia el rol a Usuario para eliminar la cuenta.</span>
+    {% else %}
     <form method="post" action="{{ url_for('user_delete', user_id=row.usuario.id) }}" onsubmit="return confirm('¿Eliminar cuenta, artículos y comentarios?')">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button class="link-button destructive">Eliminar</button>

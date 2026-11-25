@@ -3,13 +3,25 @@
 {% block content %}
 <section class="panel editor">
   <div class="eyebrow">PUBLICACIÓN</div><h1>{{ 'Editar artículo' if item else 'Nuevo artículo' }}</h1>
-  <form class="form" method="post">
+  <form class="form" method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label>Título <input name="titulo" maxlength="160" value="{{ item.articulo.titulo if item else '' }}" required></label>
-    <label>Contenido <textarea name="contenido" rows="12" maxlength="20000" required>{{ item.articulo.contenido if item else '' }}</textarea></label>
+    <label>Título <input name="titulo" maxlength="160" value="{{ request.form.get('titulo', item.articulo.titulo if item else '') }}" required></label>
+    <label>Contenido <textarea name="contenido" rows="12" maxlength="20000" required>{{ request.form.get('contenido', item.articulo.contenido if item else '') }}</textarea></label>
+    <fieldset>
+      <legend>Imagen de portada</legend>
+      {% if item and item.articulo.tiene_imagen %}
+        <img class="cover-preview" src="{{ url_for('article_image', article_id=item.articulo.id) }}" alt="Portada actual">
+        <div class="checks"><label><input type="checkbox" name="quitar_imagen" value="1"> Quitar imagen actual</label></div>
+      {% endif %}
+      <label>{{ 'Reemplazar imagen' if item and item.articulo.tiene_imagen else 'Seleccionar imagen (opcional)' }}
+        <input type="file" name="imagen" accept="image/jpeg,image/png,image/webp" aria-describedby="image-hint">
+      </label>
+      <p class="muted" id="image-hint">JPG, PNG o WebP. Hasta 4 MB y 16 megapíxeles.</p>
+    </fieldset>
     <fieldset><legend>Etiquetas</legend>
+      {% set checked_tags = request.form.getlist('tags') if request.method == 'POST' else (item.etiquetas|map(attribute='id')|list if item else []) %}
       <div class="checks">{% for row in tags %}
-        <label><input type="checkbox" name="tags" value="{{ row.etiqueta.id }}" {% if item and row.etiqueta.id in item.etiquetas|map(attribute='id')|list %}checked{% endif %}> {{ row.etiqueta.nombre }}</label>
+        <label><input type="checkbox" name="tags" value="{{ row.etiqueta.id }}" {% if row.etiqueta.id in checked_tags %}checked{% endif %}> {{ row.etiqueta.nombre }}</label>
       {% else %}<span class="muted">El administrador aún no ha creado etiquetas.</span>{% endfor %}</div>
     </fieldset>
     <button class="button" type="submit">Guardar artículo</button>

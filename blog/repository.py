@@ -3,7 +3,9 @@ import uuid
 from neo4j import GraphDatabase
 
 
+# Administra el acceso a Neo4j
 class BlogRepository:
+    # Abre el controlador para conectarse a Neo4j
     def __init__(self, uri, user, password, database="neo4j"):
         self.driver = GraphDatabase.driver(uri, auth=(user, password))
         self.database = database
@@ -11,6 +13,7 @@ class BlogRepository:
     def close(self):
         self.driver.close()
 
+    # Ejecuta una consulta Cypher y convierte los resultados en diccionarios
     def run(self, query, **params):
         with self.driver.session(database=self.database) as session:
             return [dict(record) for record in session.run(query, **params)]
@@ -19,6 +22,7 @@ class BlogRepository:
         rows = self.run(query, **params)
         return rows[0] if rows else None
 
+    # Crea las restricciones y el indice del grafo
     def schema(self):
         statements = [
             "CREATE CONSTRAINT usuario_id IF NOT EXISTS FOR (u:Usuario) REQUIRE u.id IS UNIQUE",
@@ -31,12 +35,14 @@ class BlogRepository:
         for statement in statements:
             self.run(statement)
 
+    # Busca cuentas por correo o por identificador
     def user_by_email(self, email):
         return self.one("MATCH (u:Usuario {email:$email}) RETURN u{.*} AS usuario", email=email)
 
     def user_by_id(self, user_id):
         return self.one("MATCH (u:Usuario {id:$id}) RETURN u{.*} AS usuario", id=user_id)
 
+    # Guarda una cuenta con su rol y el hash de su clave
     def create_user(self, name, email, password_hash, role="USUARIO"):
         return self.one(
             "CREATE (u:Usuario {id:$id,nombre:$name,email:$email,"
@@ -46,6 +52,7 @@ class BlogRepository:
             password_hash=password_hash, role=role,
         )
 
+    # Lista las cuentas y permite cambiar sus roles
     def users(self):
         return self.run("MATCH (u:Usuario) RETURN u{.id,.nombre,.email,.rol} AS usuario ORDER BY u.nombre")
 
@@ -55,18 +62,21 @@ class BlogRepository:
             id=user_id, role=role,
         )
 
+    # Borra un usuario regular junto con sus publicaciones y comentarios asociados
     def delete_user(self, user_id):
-        self.run(
-            "MATCH (u:Usuario {id:$id}) "
+        return self.one(
+            "MATCH (u:Usuario {id:$id}) WHERE u.rol = 'USUARIO' "
             "OPTIONAL MATCH (u)-[:PUBLICO]->(a:Articulo) "
             "OPTIONAL MATCH (a)<-[:EN_ARTICULO]-(ca:Comentario) "
             "WITH u,collect(DISTINCT a) AS articulos,collect(DISTINCT ca) AS respuestas "
             "OPTIONAL MATCH (u)-[:ESCRIBIO]->(cp:Comentario) "
             "WITH [u]+articulos+respuestas+collect(DISTINCT cp) AS nodos "
-            "UNWIND nodos AS n WITH DISTINCT n WHERE n IS NOT NULL DETACH DELETE n",
+            "UNWIND nodos AS n WITH DISTINCT n DETACH DELETE n "
+            "RETURN count(*) AS eliminados",
             id=user_id,
         )
 
+    # Consulta y administra las etiquetas del blog
     def tags(self):
         return self.run("MATCH (e:Etiqueta) RETURN e{.id,.nombre} AS etiqueta ORDER BY e.nombre")
 
@@ -85,11 +95,13 @@ class BlogRepository:
     def delete_tag(self, tag_id):
         self.run("MATCH (e:Etiqueta {id:$id}) DETACH DELETE e", id=tag_id)
 
+    # Consulta los articulos con sus autores y etiquetas
     def articles(self):
         return self.run(
             "MATCH (a:Articulo) OPTIONAL MATCH (u:Usuario)-[:PUBLICO]->(a) "
             "OPTIONAL MATCH (a)-[:ETIQUETADO_CON]->(e:Etiqueta) "
-            "RETURN a{.id,.titulo,.contenido,.creado,.actualizado} AS articulo, "
+            "RETURN a{.id,.titulo,.contenido,.creado,.actualizado,"
+            "tiene_imagen: a.imagen IS NOT NULL} AS articulo, "
             "u{.id,.nombre} AS autor, collect(DISTINCT e{.id,.nombre}) AS etiquetas "
             "ORDER BY articulo.creado DESC"
         )
@@ -98,29 +110,44 @@ class BlogRepository:
         return self.one(
             "MATCH (a:Articulo {id:$id}) OPTIONAL MATCH (u:Usuario)-[:PUBLICO]->(a) "
             "OPTIONAL MATCH (a)-[:ETIQUETADO_CON]->(e:Etiqueta) "
-            "RETURN a{.id,.titulo,.contenido,.creado,.actualizado} AS articulo, "
+            "RETURN a{.id,.titulo,.contenido,.creado,.actualizado,"
+            "tiene_imagen: a.imagen IS NOT NULL} AS articulo, "
             "u{.id,.nombre} AS autor, collect(DISTINCT e{.id,.nombre}) AS etiquetas",
             id=article_id,
         )
 
-    def create_article(self, user_id, title, content, tag_ids):
+    # Recupera los datos y el formato de la portada
+    def article_image(self, article_id):
+        return self.one(
+            "MATCH (a:Articulo {id:$id}) WHERE a.imagen IS NOT NULL "
+            "RETURN a.imagen AS datos, a.imagen_tipo AS tipo",
+            id=article_id,
+        )
+
+    # Guarda el articulo con su autor y vincula las etiquetas seleccionadas
+    def create_article(self, user_id, title, content, tag_ids, image=None):
         article_id = str(uuid.uuid4())
         self.run(
             "MATCH (u:Usuario {id:$user_id}) CREATE (u)-[:PUBLICO]->"
             "(a:Articulo {id:$id,titulo:$title,contenido:$content,"
             "creado:datetime(),actualizado:datetime()}) "
+            "SET a.imagen=$image_data,a.imagen_tipo=$image_type "
             "WITH a OPTIONAL MATCH (e:Etiqueta) WHERE e.id IN $tag_ids "
             "WITH a,collect(e) AS etiquetas "
             "FOREACH (tag IN etiquetas | MERGE (a)-[:ETIQUETADO_CON]->(tag))",
             user_id=user_id, id=article_id, title=title,
             content=content, tag_ids=tag_ids,
+            image_data=image[0] if image else None, image_type=image[1] if image else None,
         )
         return article_id
 
-    def update_article(self, article_id, title, content, tag_ids):
+    # Actualiza el contenido y las etiquetas y cambia la portada si se solicita
+    def update_article(self, article_id, title, content, tag_ids, image=None, remove_image=False):
         self.run(
             "MATCH (a:Articulo {id:$id}) SET a.titulo=$title,a.contenido=$content,"
-            "a.actualizado=datetime() WITH a "
+            "a.actualizado=datetime() "
+            "FOREACH (_ IN CASE WHEN $change_image THEN [1] ELSE [] END | "
+            "SET a.imagen=$image_data,a.imagen_tipo=$image_type) WITH a "
             "OPTIONAL MATCH (a)-[r:ETIQUETADO_CON]->(:Etiqueta) "
             "WITH a,collect(r) AS relaciones "
             "FOREACH (rel IN relaciones | DELETE rel) "
@@ -128,8 +155,11 @@ class BlogRepository:
             "WITH a,collect(e) AS etiquetas "
             "FOREACH (tag IN etiquetas | MERGE (a)-[:ETIQUETADO_CON]->(tag))",
             id=article_id, title=title, content=content, tag_ids=tag_ids,
+            change_image=image is not None or remove_image,
+            image_data=image[0] if image else None, image_type=image[1] if image else None,
         )
 
+    # Borra el articulo y los comentarios que contiene
     def delete_article(self, article_id):
         self.run(
             "MATCH (a:Articulo {id:$id}) OPTIONAL MATCH (a)<-[:EN_ARTICULO]-(c:Comentario) "
@@ -138,6 +168,7 @@ class BlogRepository:
             id=article_id,
         )
 
+    # Lista los comentarios de un articulo en orden de fecha
     def comments(self, article_id):
         return self.run(
             "MATCH (c:Comentario)-[:EN_ARTICULO]->(a:Articulo {id:$id}) "
@@ -147,6 +178,7 @@ class BlogRepository:
             id=article_id,
         )
 
+    # Vincula el comentario nuevo con el usuario y el articulo
     def create_comment(self, user_id, article_id, text):
         return self.one(
             "MATCH (u:Usuario {id:$user_id}),(a:Articulo {id:$article_id}) "
@@ -155,6 +187,7 @@ class BlogRepository:
             user_id=user_id, article_id=article_id, id=str(uuid.uuid4()), text=text,
         )
 
+    # Consulta un comentario y permite editarlo o borrarlo
     def comment(self, comment_id):
         return self.one(
             "MATCH (c:Comentario {id:$id})-[:EN_ARTICULO]->(a:Articulo) "

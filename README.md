@@ -9,7 +9,7 @@ etiquetas, roles y cuentas.
 | Nodo | Propiedades principales |
 | --- | --- |
 | Usuario | id, nombre, email, password_hash, rol, creado |
-| Articulo | id, titulo, contenido, creado, actualizado |
+| Articulo | id, titulo, contenido, creado, actualizado, imagen e imagen_tipo (opcionales) |
 | Etiqueta | id, nombre |
 | Comentario | id, texto, creado |
 
@@ -18,40 +18,58 @@ Relaciones dirigidas: `(Usuario)-[:PUBLICO]->(Articulo)`,
 `(Comentario)-[:EN_ARTICULO]->(Articulo)` y
 `(Articulo)-[:ETIQUETADO_CON]->(Etiqueta)`.
 
-El rol se consulta en Neo4j en cada petición. Un usuario normal solo modifica
-sus artículos y comentarios, mientras que el administrador puede gestionar cualquier
-contenido.
+El rol se consulta en Neo4j en cada petición. El autor puede modificar sus artículos
+y comentarios. El administrador puede gestionar el contenido de cualquier usuario.
 
 ## Requisitos
 
-- Python 3.10 o superior.
-- Neo4j Desktop o AuraDB accesible con Bolt.
-- Paquetes indicados en `requirements.txt`.
+- Python 3.10.
+- Una base de Neo4j en ejecución, local o en AuraDB, y sus credenciales.
+- Las dependencias de `requirements.txt`..
 
-## Inicio en PowerShell
+## Inicio en PowerShell de la aplicación
 
-Para iniciar el blog: 
+Abre PowerShell en la carpeta `blog_neo4j`, donde están `run.py` y `requirements.txt`.
+Inicia la base de Neo4j antes de preparar o arrancar el blog.
+
+### 1. Preparar el entorno
 
 ```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-$env:NEO4J_URI = 'neo4j://localhost:7687'
-$env:NEO4J_USER = 'neo4j'
-$env:NEO4J_PASSWORD = 'TU_CONTRASENA'
-$env:NEO4J_DATABASE = 'neo4j'
-$env:FLASK_SECRET_KEY = 'UNA_CLAVE_LARGA_Y_ALEATORIA'
-flask --app run:app init-db
-flask --app run:app create-admin
-flask --app run:app run --debug
+if (-not (Test-Path '.\.venv\Scripts\python.exe')) {
+    python -m venv .venv
+}
+& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-Abre <http://127.0.0.1:5000>. 
+### 2. Configurar la conexión
 
-La cuenta administrativa inicial se crea mediante una orden que solicita
-nombre, correo y contraseña. Después, la administración puede cambiar roles.
-En el archivo `cypher/01_schema.cypher` se documentaron las restricciones creadas por
-`init-db`. 
+Ejecuta este bloque en cada nueva ventana de PowerShell. 
+
+```powershell
+$env:NEO4J_URI = 'neo4j://localhost:7687'
+$env:NEO4J_USER = 'neo4j'
+$env:NEO4J_DATABASE = 'neo4j'
+$grafoPassword = Read-Host 'Contraseña de Neo4j' -AsSecureString
+$env:NEO4J_PASSWORD = [pscredential]::new($env:NEO4J_USER, $grafoPassword).GetNetworkCredential().Password
+$env:FLASK_SECRET_KEY = & .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"
+```
+
+### 3. Inicializar la base y crear el primer administrador
+
+
+```powershell
+& .\.venv\Scripts\python.exe -m flask --app run:app init-db
+& .\.venv\Scripts\python.exe -m flask --app run:app create-admin
+```
+
+### 4. Arrancar el blog
+
+```powershell
+& .\.venv\Scripts\python.exe -m flask --app run:app run --host 127.0.0.1 --port 5000
+```
+
+Abre <http://127.0.0.1:5000> y usa **Ctrl+C** en PowerShell para detener el servidor.
+
 
 ## Funciones y rutas
 
@@ -62,4 +80,13 @@ En el archivo `cypher/01_schema.cypher` se documentaron las restricciones creada
 | Crear artículos y comentarios | Usuario autenticado |
 | Editar o borrar contenido propio | Autor |
 | Editar o borrar cualquier contenido | Administrador |
-| Crear, editar, borrar etiquetas; gestionar cuentas y roles | Administrador |
+| Crear, editar o borrar etiquetas y gestionar cuentas y roles | Administrador |
+
+
+## Pruebas
+
+Desde la carpeta del proyecto, ejecuta las pruebas de rutas con el repositorio simulado.
+
+```powershell
+& .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```

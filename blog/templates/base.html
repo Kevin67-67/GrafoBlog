@@ -1,39 +1,42 @@
 <!doctype html>
 <html lang="es">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Blog de grafos{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
   <header class="site-header">
     <nav class="container nav" aria-label="Principal">
-      <a class="brand" href="{{ url_for('index') }}">GrafoBlog<span>●</span></a>
+      <a class="brand" href="{{ url_for('index') }}">GrafoBlog</a>
       <div class="nav-links">
         {% if g.user %}
-          <a href="{{ url_for('article_new') }}">Nuevo artículo</a>
-          {% if g.user.rol == 'ADMIN' %}<a href="{{ url_for('admin') }}">Administración</a>{% endif %}
-          <span class="username">{{ g.user.nombre }} · {{ g.user.rol|lower }}</span>
-          <form method="post" action="{{ url_for('logout') }}" class="inline">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button class="link-button" type="submit">Salir</button>
-          </form>
+        <a href="{{ url_for('article_new') }}">Nuevo artículo</a>
+        {% if g.user.rol == 'ADMIN' %}<a href="{{ url_for('admin') }}">Administración</a>{% endif %}
+        <span class="username">{{ g.user.nombre }} · {{ g.user.rol|lower }}</span>
+        <form method="post" action="{{ url_for('logout') }}" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="link-button" type="submit">Salir</button>
+        </form>
         {% else %}
-          <a href="{{ url_for('login') }}">Ingresar</a>
-          <a class="button small" href="{{ url_for('register') }}">Crear cuenta</a>
+        <a href="{{ url_for('login') }}">Ingresar</a>
+        <a class="button small" href="{{ url_for('register') }}">Crear cuenta</a>
         {% endif %}
       </div>
     </nav>
   </header>
   <main class="container">
     {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}
-        <p class="notice {{ category }}" role="status">{{ message }}</p>
-      {% endfor %}
+    {% for category, message in messages %}
+    <p class="notice {{ category }}" role="status">{{ message }}</p>
+    {% endfor %}
     {% endwith %}
     {% block content %}{% endblock %}
   </main>
-  <footer class="container footer">Blog conectado por ideas, autores y conversaciones.</footer>
+  <footer class="container footer">GrafoBlog · Bases de Datos Avanzadas</footer>
 </body>
+
 </html>
