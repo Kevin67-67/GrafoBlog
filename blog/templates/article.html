@@ -6,6 +6,9 @@
   <div class="tags">{% for tag in item.etiquetas %}<span class="tag">{{ tag.nombre }}</span>{% endfor %}</div>
   <h1>{{ item.articulo.titulo }}</h1>
   <div class="meta">Por {{ item.autor.nombre if item.autor else 'Artículo de ejemplo' }} · {{ item.articulo.creado|string|truncate(10, True, '') }}</div>
+  {% if item.categorias %}
+  <p class="meta">Categorías: {{ item.categorias|map(attribute='nombre')|join(', ') }}</p>
+  {% endif %}
   {% if item.articulo.tiene_imagen %}
     <img class="article-cover" src="{{ url_for('article_image', article_id=item.articulo.id) }}" alt="Portada de {{ item.articulo.titulo }}">
   {% endif %}

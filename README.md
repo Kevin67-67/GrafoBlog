@@ -2,7 +2,7 @@
 
 Aplicación web para administrar un blog como grafo. Los usuarios pueden registrarse,
 iniciar sesión, publicar artículos y comentar. Los administradores pueden gestionar
-etiquetas, roles y cuentas.
+categorías, etiquetas, roles y cuentas.
 
 ## Modelo
 
@@ -11,12 +11,14 @@ etiquetas, roles y cuentas.
 | Usuario | id, nombre, email, password_hash, rol, creado |
 | Articulo | id, titulo, contenido, creado, actualizado, imagen e imagen_tipo (opcionales) |
 | Etiqueta | id, nombre |
+| Categoria | id, nombre |
 | Comentario | id, texto, creado |
 
 Relaciones dirigidas: `(Usuario)-[:PUBLICO]->(Articulo)`,
 `(Usuario)-[:ESCRIBIO]->(Comentario)`,
-`(Comentario)-[:EN_ARTICULO]->(Articulo)` y
-`(Articulo)-[:ETIQUETADO_CON]->(Etiqueta)`.
+`(Comentario)-[:EN_ARTICULO]->(Articulo)`,
+`(Articulo)-[:ETIQUETADO_CON]->(Etiqueta)` y
+`(Articulo)-[:CLASIFICADO_EN]->(Categoria)`.
 
 El rol se consulta en Neo4j en cada petición. El autor puede modificar sus artículos
 y comentarios. El administrador puede gestionar el contenido de cualquier usuario.
@@ -80,8 +82,17 @@ Abre <http://127.0.0.1:5000> y usa **Ctrl+C** en PowerShell para detener el serv
 | Crear artículos y comentarios | Usuario autenticado |
 | Editar o borrar contenido propio | Autor |
 | Editar o borrar cualquier contenido | Administrador |
-| Crear, editar o borrar etiquetas y gestionar cuentas y roles | Administrador |
+| Gestionar categorías, etiquetas, cuentas y roles | Administrador |
 
+
+## Categorías de artículos
+
+Crea las categorías desde **Administración**. Al crear o editar un artículo puedes
+seleccionar varias categorías, y una categoría puede compartirse entre varios artículos.
+Eliminar una categoría quita su asociación con los artículos que la usaban.
+
+Si la base ya estaba configurada, vuelve a ejecutar `init-db` para crear la
+restricción de identificadores de categoría.
 
 ## Pruebas
 

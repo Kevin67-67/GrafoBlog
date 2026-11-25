@@ -106,11 +106,10 @@ def create_app(repository=None, config=None):
         return value
 
     # Elimina etiquetas repetidas y comprueba que existan
-    def selected_tags():
-        allowed = {row["etiqueta"]["id"] for row in repo.tags()}
-        ids = list(dict.fromkeys(request.form.getlist("tags")))
-        if not set(ids).issubset(allowed):
-            abort(400, "Etiqueta no válida")
+    def selected_ids(field, rows, key, error):
+        ids = list(dict.fromkeys(request.form.getlist(field)))
+        if not set(ids).issubset(row[key]["id"] for row in rows):
+            abort(400, error)
         return ids
 
     # Busca un articulo y devuelve un error si no existe
@@ -191,7 +190,7 @@ def create_app(repository=None, config=None):
                                  "Cache-Control": "no-cache"})
 
     def article_form(item):
-        return render_template("article_form.html", item=item, tags=repo.tags())
+        return render_template("article_form.html", item=item, tags=repo.tags(), categories=repo.categories())
 
     # Publica un articulo con una portada opcional
     @app.route("/articulos/nuevo", methods=["GET", "POST"])
@@ -204,9 +203,11 @@ def create_app(repository=None, config=None):
                 flash(str(error), "error")
                 return article_form(None), 400
             image_options = {"image": image} if image else {}
+            tag_ids = selected_ids("tags", repo.tags(), "etiqueta", "Etiqueta no válida")
+            category_ids = selected_ids("categories", repo.categories(), "categoria", "Categoría no válida")
             article_id = repo.create_article(
                 g.user["id"], clean("titulo", 160), clean("contenido", 20000),
-                selected_tags(), **image_options,
+                tag_ids, category_ids=category_ids, **image_options,
             )
             return redirect(url_for("article_detail", article_id=article_id))
         return article_form(None)
@@ -229,8 +230,12 @@ def create_app(repository=None, config=None):
                 image_options["image"] = image
             elif request.form.get("quitar_imagen") == "1":
                 image_options["remove_image"] = True
-            repo.update_article(article_id, clean("titulo", 160),
-                                clean("contenido", 20000), selected_tags(), **image_options)
+            tag_ids = selected_ids("tags", repo.tags(), "etiqueta", "Etiqueta no válida")
+            category_ids = selected_ids("categories", repo.categories(), "categoria", "Categoría no válida")
+            repo.update_article(
+                article_id, clean("titulo", 160), clean("contenido", 20000),
+                tag_ids, category_ids=category_ids, **image_options,
+            )
             return redirect(url_for("article_detail", article_id=article_id))
         return article_form(item)
 
@@ -283,7 +288,7 @@ def create_app(repository=None, config=None):
     @app.get("/admin")
     @admin_required
     def admin():
-        return render_template("admin.html", users=repo.users(), tags=repo.tags())
+        return render_template("admin.html", users=repo.users(), tags=repo.tags(), categories=repo.categories())
 
     # Agrupa las rutas para crear, renombrar y borrar etiquetas
     @app.post("/admin/etiquetas")
@@ -306,6 +311,27 @@ def create_app(repository=None, config=None):
         if not any(r["etiqueta"]["id"] == tag_id for r in repo.tags()):
             abort(404)
         repo.delete_tag(tag_id)
+        return redirect(url_for("admin"))
+
+    # Permite al administrador crear, renombrar y eliminar categorias
+    @app.post("/admin/categorias")
+    @admin_required
+    def category_new():
+        repo.create_category(clean("nombre", 50))
+        return redirect(url_for("admin"))
+
+    @app.post("/admin/categorias/<category_id>/editar")
+    @admin_required
+    def category_edit(category_id):
+        if not repo.rename_category(category_id, clean("nombre", 50)):
+            abort(404)
+        return redirect(url_for("admin"))
+
+    @app.post("/admin/categorias/<category_id>/eliminar")
+    @admin_required
+    def category_delete(category_id):
+        if not repo.delete_category(category_id):
+            abort(404)
         return redirect(url_for("admin"))
 
     # Valida y guarda los cambios de rol

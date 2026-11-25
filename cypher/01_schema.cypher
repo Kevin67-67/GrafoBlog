@@ -3,4 +3,5 @@ CREATE CONSTRAINT usuario_email IF NOT EXISTS FOR (u:Usuario) REQUIRE u.email IS
 CREATE CONSTRAINT articulo_id IF NOT EXISTS FOR (a:Articulo) REQUIRE a.id IS UNIQUE;
 CREATE CONSTRAINT etiqueta_id IF NOT EXISTS FOR (e:Etiqueta) REQUIRE e.id IS UNIQUE;
 CREATE CONSTRAINT comentario_id IF NOT EXISTS FOR (c:Comentario) REQUIRE c.id IS UNIQUE;
+CREATE CONSTRAINT categoria_id IF NOT EXISTS FOR (c:Categoria) REQUIRE c.id IS UNIQUE;
 CREATE INDEX articulo_creado IF NOT EXISTS FOR (a:Articulo) ON (a.creado);

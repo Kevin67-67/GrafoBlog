@@ -30,6 +30,7 @@ class BlogRepository:
             "CREATE CONSTRAINT articulo_id IF NOT EXISTS FOR (a:Articulo) REQUIRE a.id IS UNIQUE",
             "CREATE CONSTRAINT etiqueta_id IF NOT EXISTS FOR (e:Etiqueta) REQUIRE e.id IS UNIQUE",
             "CREATE CONSTRAINT comentario_id IF NOT EXISTS FOR (c:Comentario) REQUIRE c.id IS UNIQUE",
+            "CREATE CONSTRAINT categoria_id IF NOT EXISTS FOR (c:Categoria) REQUIRE c.id IS UNIQUE",
             "CREATE INDEX articulo_creado IF NOT EXISTS FOR (a:Articulo) ON (a.creado)",
         ]
         for statement in statements:
@@ -95,14 +96,39 @@ class BlogRepository:
     def delete_tag(self, tag_id):
         self.run("MATCH (e:Etiqueta {id:$id}) DETACH DELETE e", id=tag_id)
 
-    # Consulta los articulos con sus autores y etiquetas
+    # Consulta y administra las categorias del blog
+    def categories(self):
+        return self.run("MATCH (c:Categoria) RETURN c{.id,.nombre} AS categoria ORDER BY c.nombre")
+
+    def create_category(self, name):
+        return self.one(
+            "CREATE (c:Categoria {id:$id,nombre:$name}) RETURN c{.id,.nombre} AS categoria",
+            id=str(uuid.uuid4()), name=name,
+        )
+
+    def rename_category(self, category_id, name):
+        return self.one(
+            "MATCH (c:Categoria {id:$id}) SET c.nombre=$name RETURN c{.id,.nombre} AS categoria",
+            id=category_id, name=name,
+        )
+
+    def delete_category(self, category_id):
+        row = self.one(
+            "MATCH (c:Categoria {id:$id}) DETACH DELETE c RETURN count(*) AS eliminadas",
+            id=category_id,
+        )
+        return bool(row and row["eliminadas"])
+
+    # Consulta los articulos con su autor y clasificacion
     def articles(self):
         return self.run(
             "MATCH (a:Articulo) OPTIONAL MATCH (u:Usuario)-[:PUBLICO]->(a) "
             "OPTIONAL MATCH (a)-[:ETIQUETADO_CON]->(e:Etiqueta) "
+            "WITH a,u,collect(DISTINCT e{.id,.nombre}) AS etiquetas "
+            "OPTIONAL MATCH (a)-[:CLASIFICADO_EN]->(c:Categoria) "
             "RETURN a{.id,.titulo,.contenido,.creado,.actualizado,"
             "tiene_imagen: a.imagen IS NOT NULL} AS articulo, "
-            "u{.id,.nombre} AS autor, collect(DISTINCT e{.id,.nombre}) AS etiquetas "
+            "u{.id,.nombre} AS autor, etiquetas, collect(DISTINCT c{.id,.nombre}) AS categorias "
             "ORDER BY articulo.creado DESC"
         )
 
@@ -110,9 +136,11 @@ class BlogRepository:
         return self.one(
             "MATCH (a:Articulo {id:$id}) OPTIONAL MATCH (u:Usuario)-[:PUBLICO]->(a) "
             "OPTIONAL MATCH (a)-[:ETIQUETADO_CON]->(e:Etiqueta) "
+            "WITH a,u,collect(DISTINCT e{.id,.nombre}) AS etiquetas "
+            "OPTIONAL MATCH (a)-[:CLASIFICADO_EN]->(c:Categoria) "
             "RETURN a{.id,.titulo,.contenido,.creado,.actualizado,"
             "tiene_imagen: a.imagen IS NOT NULL} AS articulo, "
-            "u{.id,.nombre} AS autor, collect(DISTINCT e{.id,.nombre}) AS etiquetas",
+            "u{.id,.nombre} AS autor, etiquetas, collect(DISTINCT c{.id,.nombre}) AS categorias",
             id=article_id,
         )
 
@@ -124,8 +152,8 @@ class BlogRepository:
             id=article_id,
         )
 
-    # Guarda el articulo con su autor y vincula las etiquetas seleccionadas
-    def create_article(self, user_id, title, content, tag_ids, image=None):
+    # Guarda el articulo y vincula su autor, etiquetas y categorias
+    def create_article(self, user_id, title, content, tag_ids, image=None, *, category_ids=None):
         article_id = str(uuid.uuid4())
         self.run(
             "MATCH (u:Usuario {id:$user_id}) CREATE (u)-[:PUBLICO]->"
@@ -134,15 +162,20 @@ class BlogRepository:
             "SET a.imagen=$image_data,a.imagen_tipo=$image_type "
             "WITH a OPTIONAL MATCH (e:Etiqueta) WHERE e.id IN $tag_ids "
             "WITH a,collect(e) AS etiquetas "
-            "FOREACH (tag IN etiquetas | MERGE (a)-[:ETIQUETADO_CON]->(tag))",
+            "FOREACH (tag IN etiquetas | MERGE (a)-[:ETIQUETADO_CON]->(tag)) "
+            "WITH a OPTIONAL MATCH (c:Categoria) WHERE c.id IN $category_ids "
+            "WITH a,collect(c) AS categorias "
+            "FOREACH (categoria IN categorias | MERGE (a)-[:CLASIFICADO_EN]->(categoria))",
             user_id=user_id, id=article_id, title=title,
             content=content, tag_ids=tag_ids,
+            category_ids=category_ids or [],
             image_data=image[0] if image else None, image_type=image[1] if image else None,
         )
         return article_id
 
-    # Actualiza el contenido y las etiquetas y cambia la portada si se solicita
-    def update_article(self, article_id, title, content, tag_ids, image=None, remove_image=False):
+    # Actualiza el contenido y cambia la portada y las categorias si se solicita
+    def update_article(self, article_id, title, content, tag_ids, image=None, remove_image=False,
+                       *, category_ids=None):
         self.run(
             "MATCH (a:Articulo {id:$id}) SET a.titulo=$title,a.contenido=$content,"
             "a.actualizado=datetime() "
@@ -153,9 +186,17 @@ class BlogRepository:
             "FOREACH (rel IN relaciones | DELETE rel) "
             "WITH a OPTIONAL MATCH (e:Etiqueta) WHERE e.id IN $tag_ids "
             "WITH a,collect(e) AS etiquetas "
-            "FOREACH (tag IN etiquetas | MERGE (a)-[:ETIQUETADO_CON]->(tag))",
+            "FOREACH (tag IN etiquetas | MERGE (a)-[:ETIQUETADO_CON]->(tag)) "
+            "WITH a OPTIONAL MATCH (a)-[r:CLASIFICADO_EN]->(:Categoria) "
+            "WHERE $category_ids IS NOT NULL "
+            "WITH a,collect(r) AS relaciones "
+            "FOREACH (rel IN relaciones | DELETE rel) "
+            "WITH a OPTIONAL MATCH (c:Categoria) WHERE c.id IN $category_ids "
+            "WITH a,collect(c) AS categorias "
+            "FOREACH (categoria IN categorias | MERGE (a)-[:CLASIFICADO_EN]->(categoria))",
             id=article_id, title=title, content=content, tag_ids=tag_ids,
             change_image=image is not None or remove_image,
+            category_ids=category_ids,
             image_data=image[0] if image else None, image_type=image[1] if image else None,
         )
 
